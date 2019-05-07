@@ -1,0 +1,50 @@
+PODS:
+  - "!ProtoCompiler (3.7.0)":
+    - Protobuf (~> 3.0)
+  - Flutter (1.0.0)
+  - flutter_blue (0.0.1):
+    - "!ProtoCompiler"
+    - Flutter
+    - flutter_blue/Protos (= 0.0.1)
+  - flutter_blue/Protos (0.0.1):
+    - "!ProtoCompiler"
+    - Flutter
+    - Protobuf
+  - flutter_local_notifications (0.0.1):
+    - Flutter
+  - Protobuf (3.7.0)
+  - shared_preferences (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `.symlinks/flutter/ios-release`)
+  - flutter_blue (from `.symlinks/plugins/flutter_blue/ios`)
+  - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
+  - shared_preferences (from `.symlinks/plugins/shared_preferences/ios`)
+
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - "!ProtoCompiler"
+    - Protobuf
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: ".symlinks/flutter/ios-release"
+  flutter_blue:
+    :path: ".symlinks/plugins/flutter_blue/ios"
+  flutter_local_notifications:
+    :path: ".symlinks/plugins/flutter_local_notifications/ios"
+  shared_preferences:
+    :path: ".symlinks/plugins/shared_preferences/ios"
+
+SPEC CHECKSUMS:
+  "!ProtoCompiler": efc8ba4dceb16b48f6b366a08500871c8d3ff8d2
+  Flutter: 58dd7d1b27887414a370fcccb9e645c08ffd7a6a
+  flutter_blue: 319f5ab0992fd87a1fa4c90d730721a4f09ebbcb
+  flutter_local_notifications: 9e4738ce2471c5af910d961a6b7eadcf57c50186
+  Protobuf: 7a877b7f3e5964e3fce995e2eb323dbc6831bb5a
+  shared_preferences: 1feebfa37bb57264736e16865e7ffae7fc99b523
+
+PODFILE CHECKSUM: 3389836f37640698630b8f0670315d626d5f1469
+
+COCOAPODS: 1.6.1
