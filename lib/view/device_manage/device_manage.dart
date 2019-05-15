@@ -6,6 +6,7 @@ import 'package:scoped_model/scoped_model.dart';
 import 'package:ble_test/scoped_model/main_model.dart';
 import './components/edit_name_dialog.dart';
 import './components/delete_name_dialog.dart';
+import './components/connecting_box.dart';
 
 class DeviceManagePage extends StatefulWidget {
   @override
@@ -42,13 +43,19 @@ class _DeviceManagePageState extends State<DeviceManagePage> {
     return ScopedModelDescendant<MainModel>(builder: (context, child, model) {
       bool connected = model.device != null && model.device.id == device.id;
       return FlatButton(
-        onPressed: model.scanning
+        onPressed: model.scanStateSubject.value
             ? null
-            : () {
+            : () async {
                 if (connected) {
                   model.disconnect();
                 } else {
-                  print('connect ${device.id}');
+                  await model.disconnect();
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => ConnectingBox(),
+                  );
+                  // print('connect ${device.id}');
                   model.scanToConnect(device);
                 }
               },

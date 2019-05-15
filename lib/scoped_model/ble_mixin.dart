@@ -5,6 +5,7 @@ import 'package:flutter_blue/flutter_blue.dart';
 import 'package:ble_test/utils/NotificationManager.dart';
 import 'package:ble_test/models/ChairState.dart';
 import 'package:ble_test/utils/StoreManager.dart';
+import 'package:rxdart/subjects.dart';
 
 mixin BleMixin on Model {
   FlutterBlue _flutterBlue = FlutterBlue.instance;
@@ -19,33 +20,40 @@ mixin BleMixin on Model {
 
   StreamSubscription _scanSubscription;
   StreamSubscription get scanSubscription => _scanSubscription;
-  bool _scanning = false;
-  bool get scanning => _scanning;
+  final scanStateSubject = BehaviorSubject<bool>();
+  // bool _scanning = false;
+  // bool get scanning => _scanning;
   Map<DeviceIdentifier, ScanResult> _scanResults = Map();
   Map<DeviceIdentifier, ScanResult> get scanResults => _scanResults;
 
   StreamSubscription _stateSubscription;
-  Stream _stateStream;
-  Stream get stateStream => _stateStream;
   StreamSubscription get stateSubscription => _stateSubscription;
-  BluetoothState state = BluetoothState.unknown;
+  final stateSubject = BehaviorSubject<BluetoothState>();
+  BluetoothState _state = BluetoothState.unknown;
+  BluetoothState get state => _state;
 
-  BluetoothDevice device;
-  bool get inConnected => (device != null);
-  StreamSubscription<BluetoothDeviceState> deviceConnection;
+  BluetoothDevice _device;
+  BluetoothDevice get device => this._device;
+  StreamSubscription<BluetoothDeviceState> _deviceConnection;
   StreamSubscription<BluetoothDeviceState> _deviceStateSubscription;
-  StreamSubscription<BluetoothDeviceState> get deviceStateSubscription =>
-      _deviceStateSubscription;
+  final deviceStateSubject = BehaviorSubject<BluetoothDeviceState>.seeded(
+      BluetoothDeviceState.disconnected);
+
   List<BluetoothService> services = List();
   StreamSubscription<List<int>> valueChangedSubscriptions;
   List<int> _value = [];
   List<int> get value => _value;
 
-  BluetoothDeviceState deviceState = BluetoothDeviceState.disconnected;
+  DateTime _connectedTime;
+  String get connectedTime =>
+      _connectedTime == null ? '--' : _connectedTime.toString();
+  DateTime _disconnectedTime;
+  String get disconnectedTime =>
+      _disconnectedTime == null ? '--' : _disconnectedTime.toString();
+  Timer _alertTimer;
 
   Future refreshBleState() async {
-    state = await _flutterBlue.state;
-    print(state);
+    _state = await _flutterBlue.state;
     notifyListeners();
     return;
   }
@@ -53,35 +61,36 @@ mixin BleMixin on Model {
   Future initBle() async {
     await this.notificationManager.init();
     await _flutterBlue.setUniqueId('welldon_safe_chair');
-    _flutterBlue.state.then((s) {
-      state = s;
-      print(state);
+
+    _stateSubscription = _flutterBlue.onStateChanged().listen((s) async {
+      _state = s;
       notifyListeners();
-    });
-    // if (state != BluetoothState.on) return;
-    _stateStream = _flutterBlue.onStateChanged().asBroadcastStream();
-    _stateSubscription = _stateStream.listen((s) {
-      state = s;
-      notifyListeners();
-      if (s == BluetoothState.turningOff) {
-        disconnect();
-      }
       if (s == BluetoothState.off) {
-        disconnect();
+        await this.disconnect();
         print('close ble');
+        this.stateSubject.add(s);
         notificationManager.show('蓝牙已关闭');
       }
     });
+
+    var _currentState = await _flutterBlue.state;
+    this._state = _currentState;
+    this.stateSubject.add(_currentState);
+    notifyListeners();
+
     return;
   }
 
   void disposeBle() {
     _stateSubscription?.cancel();
     _stateSubscription = null;
+    stateSubject.close();
     _scanSubscription?.cancel();
     _scanSubscription = null;
-    deviceConnection?.cancel();
-    deviceConnection = null;
+    scanStateSubject.close();
+    _deviceConnection?.cancel();
+    _deviceConnection = null;
+    deviceStateSubject.close();
   }
 
   void startScan() async {
@@ -89,16 +98,12 @@ mixin BleMixin on Model {
     await this.disconnect();
     print('start scan');
     this._scanResults.clear();
+    this.scanStateSubject.add(true);
     _scanSubscription =
         _flutterBlue.scan(timeout: Duration(seconds: 10)).listen((scanResult) {
       this._scanResults[scanResult.device.id] = scanResult;
-      // if (scanResult.device.name == 'BLE003U') {
-      //   print(scanResult.advertisementData.localName);
-      //   print(scanResult.advertisementData.manufacturerData);
-      // }
       notifyListeners();
     }, onDone: stopScan);
-    _scanning = true;
     notifyListeners();
   }
 
@@ -106,90 +111,116 @@ mixin BleMixin on Model {
     print('stop scan');
     await _scanSubscription?.cancel();
     _scanSubscription = null;
-    _scanning = false;
+    this.scanStateSubject.add(false);
     notifyListeners();
     return;
   }
 
-  void connect(BluetoothDevice targetDevice) {
-    deviceConnection = _flutterBlue
-        .connect(
-          targetDevice,
-          timeout: Duration(seconds: 10),
-        )
-        .listen(null, onDone: disconnect);
-    targetDevice.state.then((s) {
-      deviceState = s;
-      notifyListeners();
-    });
+  void connect(BluetoothDevice targetDevice) async {
+    await this.stopScan();
+    await _deviceStateSubscription?.cancel();
+    _deviceStateSubscription = null;
+    await _deviceConnection?.cancel();
+    _deviceConnection = null;
+
+    final currentDeviceState = await targetDevice.state;
+    this.deviceStateSubject.add(currentDeviceState);
+    notifyListeners();
 
     _deviceStateSubscription = targetDevice.onStateChanged().listen((s) async {
-      deviceState = s;
+      this.deviceStateSubject.add(s);
       notifyListeners();
       if (s == BluetoothDeviceState.connected) {
-        device = targetDevice;
-        valueChangedSubscriptions?.cancel();
-        valueChangedSubscriptions = null;
+        this._device = targetDevice;
         await StoreManager.saveLastConnectedDevice(targetDevice);
         await this.scanServices(targetDevice);
         notifyListeners();
-        // Navigator.pop(context);
+        this._connectedTime = DateTime.now();
+        this.setTimer();
       }
       if (s == BluetoothDeviceState.disconnected) {
         // notificationManager.show('断开连接');
-        reconnect();
+        // await Future.delayed(Duration(seconds: 30));
+        // reconnect();
+        this.connect(this._device);
       }
+    });
+
+    _deviceConnection = _flutterBlue.connect(targetDevice).listen(null);
+  }
+
+  void setTimer() async {
+    this.stopTimer();
+    this._alertTimer = Timer(Duration(seconds: 120), () {
+      this.notificationManager.show('断开连接');
+      this._disconnectedTime = DateTime.now();
+      this.disconnect();
     });
   }
 
-  void reconnect() {
-    if (device == null) return;
-    deviceConnection = _flutterBlue
-        .connect(
-          device,
-          timeout: Duration(seconds: 60),
-        )
-        .listen(null, onDone: disconnect);
-    device.state.then((s) {
-      deviceState = s;
-      notifyListeners();
-    });
-
-    _deviceStateSubscription = device.onStateChanged().listen((s) async {
-      deviceState = s;
-      notifyListeners();
-      if (s == BluetoothDeviceState.connected) {
-        valueChangedSubscriptions?.cancel();
-        valueChangedSubscriptions = null;
-        await this.scanServices(device);
-        notifyListeners();
-      }
-      if (s == BluetoothDeviceState.disconnected) {
-        // notificationManager.show('断开连接');
-        reconnect();
-      }
-    });
+  void stopTimer() {
+    this._alertTimer?.cancel();
   }
+
+  // void reconnect() async {
+  //   if (this._device == null) return;
+
+  //   await _deviceStateSubscription?.cancel();
+  //   _deviceStateSubscription = null;
+  //   await _deviceConnection?.cancel();
+  //   _deviceConnection = null;
+
+  //   final currentDeviceState = await this._device.state;
+  //   this.deviceStateSubject.add(currentDeviceState);
+  //   notifyListeners();
+
+  //   _deviceStateSubscription = this._device.onStateChanged().listen((s) async {
+  //     this.deviceStateSubject.add(s);
+  //     notifyListeners();
+  //     if (s == BluetoothDeviceState.connected) {
+  //       await this.scanServices(this._device);
+  //       notifyListeners();
+  //     }
+  //     if (s == BluetoothDeviceState.disconnected) {
+  //       // notificationManager.show('断开连接');
+  //       await Future.delayed(Duration(seconds: 30));
+  //       reconnect();
+  //     }
+  //   });
+
+  //   _deviceConnection = _flutterBlue
+  //       .connect(
+  //     this._device,
+  //     timeout: Duration(seconds: 30),
+  //   )
+  //       .listen(null, onDone: () async {
+  //     notificationManager.show('断开连接');
+  //     await this.disconnect();
+  //     this._disconnectedTime = DateTime.now();
+  //   });
+
+  // }
 
   Future disconnect() async {
     print('disconnect');
     await _deviceStateSubscription?.cancel();
     _deviceStateSubscription = null;
-    await deviceConnection?.cancel();
-    deviceConnection = null;
+    await _deviceConnection?.cancel();
+    _deviceConnection = null;
     await valueChangedSubscriptions?.cancel();
     valueChangedSubscriptions = null;
-    if (device != null) {
-      notificationManager.show('断开连接');
-    }
-    device = null;
-    this.deviceState = BluetoothDeviceState.disconnected;
-    print('change to: ${this.deviceState}');
+    // if (device != null) {
+    //   notificationManager.show('断开连接');
+    // }
+    this._device = null;
+    this.deviceStateSubject.add(BluetoothDeviceState.disconnected);
     notifyListeners();
     return;
   }
 
   Future scanServices(BluetoothDevice targetDevice) async {
+    await valueChangedSubscriptions?.cancel();
+    valueChangedSubscriptions = null;
     List<BluetoothService> services = await targetDevice.discoverServices();
 
     for (BluetoothService service in services) {
@@ -197,18 +228,19 @@ mixin BleMixin on Model {
       for (BluetoothCharacteristic char in chars) {
         if (char.uuid.toString() == targetUUIDString) {
           this.targetChar = char;
-          targetDevice.setNotifyValue(char, true);
+          await targetDevice.setNotifyValue(char, true);
           valueChangedSubscriptions =
               targetDevice.onValueChanged(char).listen((value) {
             this._value = value;
-            print(value);
+            print('value is: $value');
             _chairState.setValue(value);
-            // if (value != null && value[11] == 6) {
-            //   this.notificationManager.show('666');
-            // }
-            targetDevice.writeCharacteristic(char, [0xbb, 0x01]);
+
+            // targetDevice.writeCharacteristic(char, [0xbb, 0x01]);
             notifyListeners();
           });
+          // targetDevice.writeCharacteristic(char, [0xaa, 0x01, 0xbb, 0xbc]);
+          // await Future.delayed(Duration(seconds: 3));
+          targetDevice.writeCharacteristic(char, [0xaa, 0x01, 0xbb, 0xbc]);
         }
       }
     }
@@ -221,15 +253,16 @@ mixin BleMixin on Model {
     await this.disconnect();
     print('start scan');
     this._scanResults.clear();
+    this.scanStateSubject.add(true);
     _scanSubscription =
-        _flutterBlue.scan(timeout: Duration(seconds: 10)).listen((scanResult) {
-          if (scanResult.device.id == targetDevice.id && scanResult.advertisementData.connectable) {
-            connect(scanResult.device);
-            _scanning = false;
-          }
+        _flutterBlue.scan(timeout: Duration(seconds: 60)).listen((scanResult) {
+      if (scanResult.device.id == targetDevice.id &&
+          scanResult.advertisementData.connectable) {
+        connect(scanResult.device);
+        this.scanStateSubject.add(false);
+      }
       notifyListeners();
     }, onDone: stopScan);
-    _scanning = true;
     notifyListeners();
   }
 }

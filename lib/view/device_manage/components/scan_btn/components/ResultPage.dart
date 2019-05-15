@@ -42,7 +42,7 @@ class _ResultPageState extends State<ResultPage> {
       );
     }).toList();
 
-    if (model.scanning) {
+    if (model.scanStateSubject.value) {
       result.add(ListTile(
         title: Center(
           child: SizedBox(
@@ -59,13 +59,13 @@ class _ResultPageState extends State<ResultPage> {
   Widget buildActionBtn(MainModel model) {
     return FlatButton(
       onPressed: () {
-        if (model.scanning) {
+        if (model.scanStateSubject.value) {
           model.stopScan();
         } else {
           model.startScan();
         }
       },
-      child: Text(model.scanning ? '停止' : '重新扫描'),
+      child: Text(model.scanStateSubject.value ? '停止' : '重新扫描'),
       textColor: Colors.white,
     );
   }

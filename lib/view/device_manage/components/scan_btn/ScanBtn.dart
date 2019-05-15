@@ -14,7 +14,7 @@ class ScanBtn extends StatelessWidget {
       return Container(
         child: Center(
           child: FlatButton(
-            onPressed: model.scanning ? null : () async {
+            onPressed: model.scanStateSubject.value ? null : () async {
               if (model.state != BluetoothState.on) {
                 Alert.show(context, message: '请打开蓝牙');
                 return;

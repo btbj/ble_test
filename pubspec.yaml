@@ -28,6 +28,7 @@ dependencies:
   flutter_blue:
     git:
       url: git://github.com/rmawatson/flutter_blue.git
+  rxdart: ^0.22.0
   scoped_model: ^1.0.1
   flutter_local_notifications: ^0.6.1
   shared_preferences: ^0.5.2

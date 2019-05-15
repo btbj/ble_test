@@ -15,7 +15,7 @@ class StoreManager {
   static Future<BluetoothDevice> getLastConnectedDevice() async {
     final prefs = await SharedPreferences.getInstance();
     final String id = prefs.getString(lastConnectedKey);
-    if (id.isEmpty) {
+    if (id == null || id.isEmpty) {
       return null;
     } else {
       return BluetoothDevice(id: DeviceIdentifier(id));

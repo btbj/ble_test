@@ -15,6 +15,7 @@ class _HomePageState extends State<HomePage> {
   MainModel _model;
   BluetoothState state;
   bool firstShow = true;
+  String initTime = DateTime.now().toString();
   @override
   void initState() {
     super.initState();
@@ -23,9 +24,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   void checkBleState() async {
-    await _model.initBle();
+    if (firstShow) {
+      await _model.initBle();
+    }
+    firstShow = false;
 
-    _model.stateStream.listen((s) {
+    _model.stateSubject.listen((s) {
       dealState(s);
     });
     await _model.refreshBleState();
@@ -40,10 +44,11 @@ class _HomePageState extends State<HomePage> {
       print('ble not open');
       Alert.show(context, message: '请打开蓝牙');
     }
-    if (s == BluetoothState.on && _model.device == null) {
+    if (s == BluetoothState.on && _model.deviceStateSubject.value == BluetoothDeviceState.disconnected) {
       final lastDevice = await StoreManager.getLastConnectedDevice();
       if (lastDevice != null) {
-        _model.scanToConnect(lastDevice);
+        // 暂时停用
+        // _model.scanToConnect(lastDevice);
       }
     }
   }
@@ -120,7 +125,7 @@ class _HomePageState extends State<HomePage> {
         defaultColumnWidth: FlexColumnWidth(1.0),
         children: <TableRow>[
           _buildTableRow('蓝牙状态:', getBleStateText(model.state)),
-          _buildTableRow('设备状态:', getBleDeviceStateText(model.deviceState)),
+          _buildTableRow('设备状态:', getBleDeviceStateText(model.deviceStateSubject.value)),
           _buildTableRow('蓝牙数据:', model.value.toString()),
         ],
       ),
@@ -175,6 +180,7 @@ class _HomePageState extends State<HomePage> {
               child: Icon(Icons.list),
               textColor: Colors.white,
               onPressed: () {
+                model.stopScan();
                 Navigator.pushNamed(context, 'device_manage');
               },
             ),
@@ -189,6 +195,12 @@ class _HomePageState extends State<HomePage> {
                 buildBleBox(model),
                 SizedBox(height: 10),
                 buildStateBox(model.chairState),
+                SizedBox(height: 10),
+                Text(this.initTime),
+                SizedBox(height: 10),
+                Text('connected at: ${model.connectedTime}'),
+                SizedBox(height: 10),
+                Text('disconnected at: ${model.disconnectedTime}'),
                 // SizedBox(height: 10),
                 // buildDisconnectBtn(model),
               ],
