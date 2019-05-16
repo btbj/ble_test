@@ -5,6 +5,7 @@ import 'package:ble_test/models/ChairState.dart';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'package:ble_test/components/alert.dart';
 import 'package:ble_test/utils/StoreManager.dart';
+import 'package:ble_test/view/home/components/side_menu.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -186,6 +187,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
+        drawer: SideMenu(),
         body: ListView(
           children: <Widget>[
             Column(

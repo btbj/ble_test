@@ -12,6 +12,8 @@ PODS:
     - Protobuf
   - flutter_local_notifications (0.0.1):
     - Flutter
+  - path_provider (0.0.1):
+    - Flutter
   - Protobuf (3.6.1)
   - shared_preferences (0.0.1):
     - Flutter
@@ -20,6 +22,7 @@ DEPENDENCIES:
   - Flutter (from `.symlinks/flutter/ios`)
   - flutter_blue (from `.symlinks/plugins/flutter_blue/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
+  - path_provider (from `.symlinks/plugins/path_provider/ios`)
   - shared_preferences (from `.symlinks/plugins/shared_preferences/ios`)
 
 SPEC REPOS:
@@ -34,6 +37,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_blue/ios"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
+  path_provider:
+    :path: ".symlinks/plugins/path_provider/ios"
   shared_preferences:
     :path: ".symlinks/plugins/shared_preferences/ios"
 
@@ -42,6 +47,7 @@ SPEC CHECKSUMS:
   Flutter: 9d0fac939486c9aba2809b7982dfdbb47a7b0296
   flutter_blue: 4478748a9beded21cf65d4b69f7fb97b44e5c51f
   flutter_local_notifications: 696a74904e0a0ab754e27a5f761da4a7f9153710
+  path_provider: 09407919825bfe3c2deae39453b7a5b44f467873
   Protobuf: 1eb9700044745f00181c136ef21b8ff3ad5a0fd5
   shared_preferences: 5a1d487c427ee18fcd3ea1f2a131569481834b53
 

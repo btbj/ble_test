@@ -6,6 +6,7 @@ import 'package:ble_test/utils/NotificationManager.dart';
 import 'package:ble_test/models/ChairState.dart';
 import 'package:ble_test/utils/StoreManager.dart';
 import 'package:rxdart/subjects.dart';
+import 'package:ble_test/utils/LogManager.dart';
 
 mixin BleMixin on Model {
   FlutterBlue _flutterBlue = FlutterBlue.instance;
@@ -52,6 +53,8 @@ mixin BleMixin on Model {
       _disconnectedTime == null ? '--' : _disconnectedTime.toString();
   Timer _alertTimer;
 
+  LogManager _logManager = LogManager();
+
   Future refreshBleState() async {
     _state = await _flutterBlue.state;
     notifyListeners();
@@ -60,6 +63,7 @@ mixin BleMixin on Model {
 
   Future initBle() async {
     await this.notificationManager.init();
+    await this._logManager.init();
     await _flutterBlue.setUniqueId('welldon_safe_chair');
 
     _stateSubscription = _flutterBlue.onStateChanged().listen((s) async {
@@ -135,7 +139,14 @@ mixin BleMixin on Model {
         await StoreManager.saveLastConnectedDevice(targetDevice);
         await this.scanServices(targetDevice);
         notifyListeners();
-        this._connectedTime = DateTime.now();
+        final now = DateTime.now();
+        String diffSecconds = '';
+        if (this._connectedTime != null) {
+          Duration diff = now.difference(this._connectedTime);
+          diffSecconds = '+' + diff.inSeconds.toString() + 's';
+        }
+        await this._logManager.append('C: ${now.toString()}  $diffSecconds');
+        this._connectedTime = now;
         this.setTimer();
       }
       if (s == BluetoothDeviceState.disconnected) {
@@ -151,9 +162,16 @@ mixin BleMixin on Model {
 
   void setTimer() async {
     this.stopTimer();
-    this._alertTimer = Timer(Duration(seconds: 120), () {
+    this._alertTimer = Timer(Duration(seconds: 120), () async {
       this.notificationManager.show('断开连接');
-      this._disconnectedTime = DateTime.now();
+      final now = DateTime.now();
+      String diffSecconds = '';
+      if (this._connectedTime != null) {
+        Duration diff = now.difference(this._connectedTime);
+        diffSecconds = '+' + diff.inSeconds.toString() + 's';
+      }
+      await this._logManager.append('D: ${now.toString()}  $diffSecconds');
+      this._disconnectedTime = now;
       this.disconnect();
     });
   }

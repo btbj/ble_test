@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'package:scoped_model/scoped_model.dart';
 import 'package:ble_test/scoped_model/main_model.dart';
@@ -10,17 +11,25 @@ class ConnectingBox extends StatefulWidget {
 
 class _ConnectingBoxState extends State<ConnectingBox> {
   MainModel _model;
+  StreamSubscription watcher;
 
   @override
   void initState() {
     super.initState();
     _model = ScopedModel.of(context);
-    _model.deviceStateSubject.listen((s) {
+    watcher = _model.deviceStateSubject.listen((s) {
       if (s == BluetoothDeviceState.connected) {
         Navigator.pop(context);
       }
     });
   }
+
+  @override
+  void dispose() {
+    watcher.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScopedModelDescendant<MainModel>(builder: (context, child, model) {
