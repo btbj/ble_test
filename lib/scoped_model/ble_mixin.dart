@@ -139,14 +139,9 @@ mixin BleMixin on Model {
         await StoreManager.saveLastConnectedDevice(targetDevice);
         await this.scanServices(targetDevice);
         notifyListeners();
-        final now = DateTime.now();
-        String diffSecconds = '';
-        if (this._connectedTime != null) {
-          Duration diff = now.difference(this._connectedTime);
-          diffSecconds = '+' + diff.inSeconds.toString() + 's';
-        }
-        await this._logManager.append('C: ${now.toString()}  $diffSecconds');
-        this._connectedTime = now;
+
+        await this.logTime();
+        
         this.setTimer();
       }
       if (s == BluetoothDeviceState.disconnected) {
@@ -160,18 +155,26 @@ mixin BleMixin on Model {
     _deviceConnection = _flutterBlue.connect(targetDevice).listen(null);
   }
 
+  Future logTime({bool disconnect = false}) async {
+    final now = DateTime.now();
+    final millseconds = now.millisecondsSinceEpoch;
+    if (!disconnect) {
+      await this._logManager.append('C:$millseconds');
+      this._connectedTime = now;
+    } else {
+      await this._logManager.append('D:$millseconds');
+      this._disconnectedTime = now;
+    }
+    return;
+  }
+
   void setTimer() async {
     this.stopTimer();
     this._alertTimer = Timer(Duration(seconds: 120), () async {
       this.notificationManager.show('断开连接');
-      final now = DateTime.now();
-      String diffSecconds = '';
-      if (this._connectedTime != null) {
-        Duration diff = now.difference(this._connectedTime);
-        diffSecconds = '+' + diff.inSeconds.toString() + 's';
-      }
-      await this._logManager.append('D: ${now.toString()}  $diffSecconds');
-      this._disconnectedTime = now;
+      
+      await this.logTime(disconnect: true);
+
       this.disconnect();
     });
   }

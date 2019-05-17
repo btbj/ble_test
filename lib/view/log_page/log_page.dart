@@ -37,8 +37,39 @@ class _LogPageState extends State<LogPage> {
           return ListView.builder(
             itemCount: snapshot.data.length,
             itemBuilder: (context, index) {
+              List<String> info = snapshot.data[index].split(':');
+              bool connected = info[0] == 'C';
+              DateTime time =
+                  DateTime.fromMillisecondsSinceEpoch(int.parse(info[1]));
+              int diffseconds = 0;
+              String diff = '';
+              if (index > 0) {
+                List<String> previnfo = snapshot.data[index - 1].split(':');
+                DateTime prevtime =
+                    DateTime.fromMillisecondsSinceEpoch(int.parse(previnfo[1]));
+                diffseconds = time.difference(prevtime).inSeconds;
+                diff = '$diffseconds' + 's';
+              }
               return ListTile(
-                title: Text(snapshot.data[index]),
+                leading: SizedBox(
+                  height: 35,
+                  width: 20,
+                  child: Center(
+                    child: Text(
+                      connected ? 'C' : 'D',
+                      style: TextStyle(
+                        color: connected ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text(time.toString()),
+                trailing: Text(
+                  diff,
+                  style: TextStyle(
+                      color: diffseconds > 70 ? Colors.red : Colors.green),
+                ),
               );
             },
           );
@@ -47,7 +78,12 @@ class _LogPageState extends State<LogPage> {
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
         onPressed: () async {
-          // await logManager.append('test log');
+          String log = 'C:' + DateTime.now().millisecondsSinceEpoch.toString();
+          print(log);
+          List<String> data = log.split(':');
+          var time = DateTime.fromMillisecondsSinceEpoch(int.parse(data[1]));
+          print(time);
+          await logManager.append(log);
         },
       ),
     );
